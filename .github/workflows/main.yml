@@ -8,10 +8,14 @@ on:
 
 jobs:
   lint:
+
     runs-on: ubuntu-latest
+
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+
 
       - name: Checking for prtodo's.
         run: |
@@ -21,6 +25,7 @@ jobs:
               echo "All good"
           fi
 
+
       - name: Checking for leftover "ray" usages.
         run: |
           if grep --exclude-dir={.git,.github,vendor} -rE "ray("; then
@@ -29,6 +34,7 @@ jobs:
               echo "All good"
           fi
 
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -36,21 +42,27 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
           coverage: none
 
+
       - name: Install dependencies
         run: |
           composer require "laravel/framework:11.*" --no-interaction --no-update
           composer install
 
+
       - name: Execute tests
         run: vendor/bin/phpstan
+
 
       - name: Check code style
         run: vendor/bin/phpcs
 
   test:
     name: PHP ${{ matrix.php }} - LARAVEL ${{ matrix.laravel }} - DBAL ${{ matrix.dbal }}
+
     timeout-minutes: 30
+
     runs-on: ${{ matrix.os }}
+
     services:
       mysql:
         image: mysql:latest
@@ -61,13 +73,14 @@ jobs:
         ports:
           - 3306/tcp
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
         php: [8.3, 8.2, 8.1]
-        laravel: [10.*, 11.*]
-        dbal: [3.*, 4.*]
+        laravel: ['10.*', '11.*', '12.*']
+        dbal: ['3.*', '4.*']
         exclude:
           - laravel: 10.*
             dbal: 4.*
@@ -75,20 +88,27 @@ jobs:
             php: 8.1
           - laravel: 11.*
             dbal: 3.*
+          - laravel: 12.*
+            php: 8.1
         include:
           - laravel: 10.*
             testbench: 8.*
           - laravel: 11.*
             testbench: 9.*
+          - laravel: 12.*
+            testbench: 10.*
+
 
     steps:
       - name: Set timezone?
         uses: szenius/set-timezone@v1.0
         with:
-          timezoneLinux: "Europe/Paris"
+          timezoneLinux: Europe/Paris
+
 
       - name: Checkout code
         uses: actions/checkout@v2
+
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -99,15 +119,18 @@ jobs:
         env:
           COMPOSER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
       - name: Setup problem matchers
         run: |
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
+
       - name: Get Composer Cache Directory
         id: composer-cache
         run: |
           echo "::set-output name=dir::$(composer config cache-files-dir)"
+
       - uses: actions/cache@v2
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
@@ -115,37 +138,46 @@ jobs:
           restore-keys: |
             ${{ matrix.os }}-${{ matrix.laravel }}-${{ matrix.php }}-${{ matrix.dbal }}-composer-
 
+
       - name: Install dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" "doctrine/dbal:${{ matrix.dbal }}" --no-interaction --no-update
           composer install --prefer-dist --no-interaction --no-plugins
 
+
       - name: Setup Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '20.x'
+          node-version: 20.x
+
 
       - name: Build npm dependencies.
         run: |
           npm ci
 
+
       - name: Create blocks dir
         run: |
           mkdir ./frontend/js/components/blocks/customs
+
 
       - name: Build twill.
         run: ./vendor/bin/testbench twill:build --forTesting
         env:
           CACHE_STORE: array
 
+
       - name: Upgrade Chrome
         uses: browser-actions/setup-chrome@latest
+
 
       - name: Upgrade Chrome Driver
         run: ./vendor/bin/testbench dusk:chrome-driver --detect
 
+
       - name: Prepare Testbench Dusk
         run: ./vendor/bin/testbench-dusk package:discover
+
 
       - name: Execute all tests
         run: vendor/bin/phpunit --stop-on-error
@@ -156,16 +188,19 @@ jobs:
         with:
           files: .github/clover.xml
 
+
       - name: Replace asterisks in Laravel
         run: echo "REPLACED_LARAVEL=${MATRIX_LARAVEL//\*/_}" >> $GITHUB_ENV
         env:
           MATRIX_LARAVEL: ${{ matrix.laravel }}
+
 
       - name: Replace asterisks in DBAL
         id: replace_dbal
         run: echo "REPLACED_DBAL=${MATRIX_DBAL//\*/_}" >> $GITHUB_ENV
         env:
           MATRIX_DBAL: ${{ matrix.dbal }}
+
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
